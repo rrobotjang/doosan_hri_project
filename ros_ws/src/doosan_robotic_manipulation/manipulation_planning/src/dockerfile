@@ -1,0 +1,51 @@
+# =====================================================================
+# Stage 1: Builder Environment (Build Dependencies and Custom Packages)
+# =====================================================================
+FROM osrf/ros:humble-ros-base AS builder
+
+# apt 패키지 업데이트 및 빌드에 필요한 도구 설치
+RUN apt-get update && apt-get install -y \
+    python3-pip \
+    python3-colcon-common-extensions \
+    git \
+    build-essential \
+    # 사용자 패키지에 필요한 추가 라이브러리 설치 (예: OpenCV, PCL 등)
+    libopencv-dev \
+    # FastAPI 서버의 Python 종속성도 여기에 포함시킵니다.
+    python3-fastapi python3-uvicorn python3-torch python3-transformers python3-peft \
+    && rm -rf /var/lib/apt/lists/*
+
+# ROS 작업 공간 설정
+WORKDIR /ros_ws
+
+# 호스트의 src 디렉토리 내용을 컨테이너의 src로 복사
+COPY src src
+
+# Python 종속성 설치 (ROS 패키지 내 requirements.txt가 있다면)
+# RUN pip install -r src/doosan_robotic_manipulation/requirements.txt
+
+# Colcon 빌드 실행
+RUN colcon build --symlink-install
+
+# =====================================================================
+# Stage 2: Runtime Environment (Minimal execution environment)
+# =====================================================================
+FROM osrf/ros:humble-ros-base AS runtime
+
+# apt 패키지 업데이트 및 런타임에 필요한 라이브러리 설치 (빌드 시 사용한 라이브러리와 동일하게)
+RUN apt-get update && apt-get install -y \
+    libopencv-dev \
+    # Python 런타임 종속성 (FastAPI 서버에서 사용되는 것과 동일해야 함)
+    python3-fastapi python3-uvicorn python3-torch python3-transformers python3-peft \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /ros_ws
+
+# Builder 스테이지에서 빌드된 설치 결과물 복사
+COPY --from=builder /ros_ws/install install
+COPY --from=builder /ros_ws/src/doosan_robotic_manipulation/launch launch
+# 필요한 경우 launch 파일이나 기타 설정 파일을 복사합니다.
+
+# ROS 환경 설정 스크립트 소싱
+CMD ["/bin/bash", "-c", ". install/setup.bash && ros2 launch doosan_robotic_manipulation integrated_system.launch.py"]
+

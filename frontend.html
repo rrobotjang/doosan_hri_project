@@ -1,0 +1,62 @@
+<!-- frontend.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Robot Voice Control</title>
+</head>
+<body>
+    <h1>두산 로봇 음성 제어</h1>
+    <button id="recordButton">음성 명령 녹음</button>
+    <p>상태: <span id="status">대기 중</span></p>
+    <pre>응답: <code id="response"></code></pre>
+
+    <script>
+        const recordButton = document.getElementById('recordButton');
+        const statusSpan = document.getElementById('status');
+        const responseCode = document.getElementById('response');
+        let mediaRecorder;
+        let audioChunks = [];
+
+        recordButton.onclick = async () => {
+            if (mediaRecorder && mediaRecorder.state === "recording") {
+                mediaRecorder.stop();
+                statusSpan.textContent = "녹음 중지 및 전송 중...";
+                recordButton.disabled = true;
+            } else {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { 'type' : 'audio/wav; codecs=0' });
+                    audioChunks = [];
+                    await sendAudioToServer(audioBlob);
+                    recordButton.disabled = false;
+                };
+                mediaRecorder.start();
+                statusSpan.textContent = "녹음 중 (클릭하여 중지)";
+            }
+        };
+
+        async function sendAudioToServer(audioBlob) {
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'command.wav');
+
+            try {
+                const response = await fetch('/command', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                responseCode.textContent = JSON.stringify(result, null, 2);
+                statusSpan.textContent = "명령 전송 완료";
+            } catch (error) {
+                console.error('Error sending audio:', error);
+                statusSpan.textContent = "오류 발생";
+                responseCode.textContent = error.message;
+            }
+        }
+    </script>
+</body>
+</html>

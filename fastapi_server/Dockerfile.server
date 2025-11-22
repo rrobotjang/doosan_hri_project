@@ -1,0 +1,14 @@
+# Use a base image with Python and CUDA capabilities if using GPU for LLM/STT
+FROM nvcr.io/nvidia/cuda:11.8.0-base-ubuntu22.04 AS base
+
+FROM python:3.10-slim-bullseye
+
+WORKDIR /app
+
+COPY ./fastapi_server/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+# requirements.txt에는 fastapi, uvicorn, torch, transformers, peft, datasets, rclpy 등이 포함되어야 함
+
+COPY ./fastapi_server/main.py .
+
+CMD ["python", "main.py"]

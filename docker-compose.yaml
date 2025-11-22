@@ -1,0 +1,7 @@
+# docker-compose.yaml 파일 일부 수정
+services:
+  ros_system:
+    build:
+      context: ./ros_workspace # Dockerfile이 위치한 경로 지정
+      dockerfile: Dockerfile   # Dockerfile 이름 지정 (위의 코드)
+    # ... (networks, depends_on 등의 설정은 동일) ...
